@@ -59,20 +59,20 @@ function theaterPayload(theaterId: string, date: string): unknown {
   };
 }
 
-function mapPayload(targetId: string, returned: boolean): unknown {
+function mapPayload(targetId: string, groupAvailable: boolean): unknown {
   return {
     theaterName: targetId,
     auditoriumId: targetId === "ontario" ? 13 : 12,
     seats: [
-      { id: "E3", row: 5, column: 20, status: returned ? "A" : "R", type: "standard", x: 100, y: 50, width: 24, height: 24 },
+      { id: "E3", row: 5, column: 20, status: groupAvailable ? "A" : "R", type: "standard", x: 100, y: 50, width: 24, height: 24 },
       { id: "E2", row: 5, column: 21, status: "A", type: "standard", x: 130, y: 50, width: 24, height: 24 },
       { id: "E1", row: 5, column: 22, status: "A", type: "standard", x: 160, y: 50, width: 24, height: 24 },
     ],
   };
 }
 
-test("baselines silently, caches catalogs, then alerts on returned groups", async () => {
-  let returned = false;
+test("alerts on first observation, deduplicates unchanged groups, and alerts after reappearance", async () => {
+  let groupAvailable = true;
   let catalogRequests = 0;
   const fetchImpl = async (url: URL): Promise<Response> => {
     if (url.pathname.includes("theaterMovieShowtimes")) {
@@ -81,7 +81,7 @@ test("baselines silently, caches catalogs, then alerts on returned groups", asyn
       return Response.json(theaterPayload(theaterId, url.searchParams.get("startDate")!));
     }
     const targetId = url.pathname.includes("ontario") ? "ontario" : "irvine";
-    return Response.json(mapPayload(targetId, returned));
+    return Response.json(mapPayload(targetId, groupAvailable));
   };
   const kv = new MemoryKv();
   const env = {
@@ -101,10 +101,9 @@ test("baselines silently, caches catalogs, then alerts on returned groups", asyn
   });
   assert.equal(first.errors.length, 0);
   assert.equal(first.targets.reduce((sum, target) => sum + target.baselinesCreated, 0), 2);
-  assert.equal(events.length, 0);
+  assert.equal(events.length, 2);
   assert.equal(catalogRequests, 16);
 
-  returned = true;
   const second = await runAllTargets(env, {
     now,
     client,
@@ -116,6 +115,26 @@ test("baselines silently, caches catalogs, then alerts on returned groups", asyn
   assert.equal(catalogRequests, 16, "the fresh catalogs should be reused");
   assert.equal(events.length, 2);
   assert.ok(events.every((event) => event.groups[0]?.key === "E3+E2+E1"));
+
+  groupAvailable = false;
+  await runAllTargets(env, {
+    now,
+    client,
+    seatAlertSender: async (_webhook, event) => {
+      events.push(event);
+    },
+  });
+  assert.equal(events.length, 2);
+
+  groupAvailable = true;
+  await runAllTargets(env, {
+    now,
+    client,
+    seatAlertSender: async (_webhook, event) => {
+      events.push(event);
+    },
+  });
+  assert.equal(events.length, 4);
 });
 
 test("deduplicates repeated errors and announces recovery", async () => {

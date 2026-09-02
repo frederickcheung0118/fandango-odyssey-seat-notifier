@@ -154,7 +154,7 @@ export function eligibleAvailableGroups(map: SeatMap): SeatGroup[] {
 
 export function snapshotForMap(map: SeatMap, capturedAt: Date): SeatSnapshot {
   return {
-    version: 3,
+    version: 4,
     auditoriumId: map.auditoriumId,
     capturedAt: capturedAt.toISOString(),
     availableSeatIds: normalizeSeats(map)
@@ -164,12 +164,13 @@ export function snapshotForMap(map: SeatMap, capturedAt: Date): SeatSnapshot {
   };
 }
 
-export function returnedGroups(map: SeatMap, previous: SeatSnapshot | undefined): {
+export function groupsToNotify(map: SeatMap, previous: SeatSnapshot | undefined): {
   groups: SeatGroup[];
-  returnedSeatIds: string[];
+  newlyAvailableSeatIds: string[];
 } {
-  if (!previous || previous.version !== 3 || previous.auditoriumId !== map.auditoriumId) {
-    return { groups: [], returnedSeatIds: [] };
+  const groups = eligibleAvailableGroups(map);
+  if (!previous || previous.version !== 4 || previous.auditoriumId !== map.auditoriumId) {
+    return { groups, newlyAvailableSeatIds: [] };
   }
   const previousAvailable = new Set(previous.availableSeatIds);
   const currentAvailable = new Set(
@@ -177,10 +178,11 @@ export function returnedGroups(map: SeatMap, previous: SeatSnapshot | undefined)
       .filter((seat) => seat.available)
       .map((seat) => seat.id),
   );
-  const returnedSeatIds = [...currentAvailable].filter((id) => !previousAvailable.has(id)).sort();
-  const returned = new Set(returnedSeatIds);
-  const groups = eligibleAvailableGroups(map).filter((group) => group.seats.some((seat) => returned.has(seat.id)));
-  return { groups, returnedSeatIds };
+  const newlyAvailableSeatIds = [...currentAvailable].filter((id) => !previousAvailable.has(id)).sort();
+  const newlyVisibleGroups = groups.filter((group) =>
+    group.seats.some((seat) => !previousAvailable.has(seat.id)),
+  );
+  return { groups: newlyVisibleGroups, newlyAvailableSeatIds };
 }
 
 export function rawSeat(overrides: Partial<RawSeat> & Pick<RawSeat, "id" | "row" | "column">): RawSeat {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { eligibleAvailableGroups, returnedGroups, snapshotForMap } from "../src/seats.ts";
+import { eligibleAvailableGroups, groupsToNotify, snapshotForMap } from "../src/seats.ts";
 import type { RawSeat, SeatMap } from "../src/types.ts";
 
 function seat(
@@ -70,7 +70,7 @@ test("excludes nonstandard seats, unselected rows, and low-scoring edge groups",
   assert.ok(groups[0]!.score > 50);
 });
 
-test("alerts only when a newly available seat forms an eligible group of three", () => {
+test("alerts on first observation and when a group of three becomes available again", () => {
   const before = map([
     seat("E3", 10, 100, { status: "R" }),
     seat("E2", 11, 130),
@@ -78,12 +78,19 @@ test("alerts only when a newly available seat forms an eligible group of three",
   ]);
   const after = map([seat("E3", 10, 100), seat("E2", 11, 130), seat("E1", 12, 160)]);
   const previous = snapshotForMap(before, new Date("2026-09-02T00:00:00Z"));
-  const discovery = returnedGroups(after, previous);
-  assert.deepEqual(discovery.returnedSeatIds, ["E3"]);
+  const discovery = groupsToNotify(after, previous);
+  assert.deepEqual(discovery.newlyAvailableSeatIds, ["E3"]);
   assert.deepEqual(discovery.groups.map((group) => group.key), ["E3+E2+E1"]);
-  assert.deepEqual(returnedGroups(after, undefined), { groups: [], returnedSeatIds: [] });
-  assert.deepEqual(returnedGroups(after, { ...previous, auditoriumId: "different" }), {
+  assert.deepEqual(groupsToNotify(after, undefined), {
+    groups: eligibleAvailableGroups(after),
+    newlyAvailableSeatIds: [],
+  });
+  assert.deepEqual(groupsToNotify(after, snapshotForMap(after, new Date("2026-09-02T00:05:00Z"))), {
     groups: [],
-    returnedSeatIds: [],
+    newlyAvailableSeatIds: [],
+  });
+  assert.deepEqual(groupsToNotify(after, { ...previous, auditoriumId: "different" }), {
+    groups: eligibleAvailableGroups(after),
+    newlyAvailableSeatIds: [],
   });
 });

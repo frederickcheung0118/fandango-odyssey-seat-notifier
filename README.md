@@ -1,8 +1,8 @@
 # Fandango Odyssey seat notifier
 
-A read-only GitHub Action that checks returned tickets for *The Odyssey* in
-IMAX 70MM every five minutes and sends Discord alerts with a highlighted PNG
-seat map. It never holds, reserves, or purchases tickets.
+A read-only GitHub Action that checks qualifying seat availability for *The
+Odyssey* in IMAX 70MM every five minutes and sends Discord alerts with a
+highlighted PNG seat map. It never holds, reserves, or purchases tickets.
 
 ## Active filters
 
@@ -15,8 +15,9 @@ seat map. It never holds, reserves, or purchases tickets.
 - Three adjacent standard seats
 - Rows E, F, G, H, I, or K
 - Geometric seat-quality score strictly greater than 50
-- First successful observation is a silent baseline; alerts require an
-  unavailable-to-available transition after that baseline
+- Existing qualifying groups alert on their first successful observation
+- Unchanged groups do not repeat; a group can alert again after disappearing
+  and later becoming available again
 
 ## Fast, conservative polling
 
@@ -44,9 +45,9 @@ seat map. It never holds, reserves, or purchases tickets.
 1. Create a public repository and push this directory.
 2. In **Settings → Secrets and variables → Actions**, create the repository
    secret `DISCORD_WEBHOOK_URL`.
-3. Open **Actions → Fandango seat notifier → Run workflow** once. The first
-   successful run silently establishes the baseline; scheduled checks then run
-   every five minutes.
+3. Open **Actions → Fandango seat notifier → Run workflow** once. Existing
+   qualifying groups alert immediately, and scheduled checks then run every
+   five minutes without repeating unchanged groups.
 
 The committed `.notifier-state/state.json` contains only cached public
 showtime/seat-availability data. The Discord webhook exists only as an

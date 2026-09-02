@@ -74,7 +74,7 @@ export interface SeatGroup {
 }
 
 export interface SeatSnapshot {
-  version: 3;
+  version: 4;
   auditoriumId: string;
   capturedAt: string;
   availableSeatIds: string[];
@@ -90,7 +90,7 @@ export interface SeatAlertEvent {
   showtime: Showtime;
   map: SeatMap;
   groups: SeatGroup[];
-  returnedSeatIds: string[];
+  newlyAvailableSeatIds: string[];
 }
 
 export interface RunError {

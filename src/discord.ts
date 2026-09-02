@@ -28,7 +28,7 @@ export async function sendSeatAlert(
 ): Promise<void> {
   validateWebhook(webhookUrl);
   const highlighted = new Set(event.groups.flatMap((group) => group.seats.map((seat) => seat.id)));
-  const png = renderSeatMapPng(event.map, highlighted, event.returnedSeatIds);
+  const png = renderSeatMapPng(event.map, highlighted, event.newlyAvailableSeatIds);
   const groupLines = event.groups
     .slice(0, 12)
     .map((group) => `**${group.seats.map((seat) => seat.id).join(" + ")}** — score ${group.score}`)
@@ -39,7 +39,7 @@ export async function sendSeatAlert(
     allowed_mentions: { parse: [] },
     embeds: [
       {
-        title: `Returned seats — ${event.target.name}`,
+        title: `Seats available — ${event.target.name}`,
         url: absoluteTicketUrl(event.showtime.ticketingUrl, event.target.pageUrl),
         color: 0xfacc15,
         description: `**The Odyssey — IMAX 70MM**\n<t:${epochSeconds}:F> (<t:${epochSeconds}:R>)`,

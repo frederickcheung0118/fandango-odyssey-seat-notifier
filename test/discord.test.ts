@@ -33,7 +33,7 @@ function event(): SeatAlertEvent {
     },
     map,
     groups: eligibleAvailableGroups(map),
-    returnedSeatIds: ["E3"],
+    newlyAvailableSeatIds: ["E3"],
   };
 }
 

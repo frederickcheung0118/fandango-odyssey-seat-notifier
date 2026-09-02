@@ -1,7 +1,7 @@
 import { SETTINGS, TARGETS } from "./config.ts";
 import { sendErrorNotification, sendRecoveryNotification, sendSeatAlert } from "./discord.ts";
 import { FandangoClient, FandangoError } from "./fandango.ts";
-import { returnedGroups, snapshotForMap } from "./seats.ts";
+import { groupsToNotify, snapshotForMap } from "./seats.ts";
 import { calendarDatesForWindow } from "./time.ts";
 import type {
   Env,
@@ -222,13 +222,20 @@ export async function runAllTargets(env: Env, dependencies: MonitorDependencies 
         targetReport.seatMapsSucceeded += 1;
         key = snapshotId(target, showtime);
         const previous = snapshotStore.snapshots[key];
-        const discovery = returnedGroups(map, previous);
+        const discovery = groupsToNotify(map, previous);
         next = snapshotForMap(map, now);
 
-        if (!previous || previous.version !== 3 || previous.auditoriumId !== map.auditoriumId) {
+        if (!previous || previous.version !== 4 || previous.auditoriumId !== map.auditoriumId) {
           targetReport.baselinesCreated += 1;
-        } else if (discovery.groups.length > 0) {
-          event = { target, showtime, map, groups: discovery.groups, returnedSeatIds: discovery.returnedSeatIds };
+        }
+        if (discovery.groups.length > 0) {
+          event = {
+            target,
+            showtime,
+            map,
+            groups: discovery.groups,
+            newlyAvailableSeatIds: discovery.newlyAvailableSeatIds,
+          };
         }
       } catch (error) {
         errors.push(runError(error, target, "seat-map", showtime));

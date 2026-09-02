@@ -18,7 +18,7 @@ const AVAILABLE: Color = [45, 212, 191];
 const TAKEN: Color = [51, 65, 85];
 const SPECIAL: Color = [96, 165, 250];
 const GROUP: Color = [250, 204, 21];
-const RETURNED: Color = [244, 63, 94];
+const NEWLY_AVAILABLE: Color = [244, 63, 94];
 const WHITE: Color = [248, 250, 252];
 const LABEL: Color = [226, 232, 240];
 const MUTED_LABEL: Color = [100, 116, 139];
@@ -147,10 +147,10 @@ function drawSeat(
   width: number,
   height: number,
   fill: Color,
-  emphasis: "none" | "group" | "returned",
+  emphasis: "none" | "group" | "new",
 ): void {
-  if (emphasis === "returned") {
-    raster.strokeRect(x - 5, y - 5, width + 10, height + 12, RETURNED, 3);
+  if (emphasis === "new") {
+    raster.strokeRect(x - 5, y - 5, width + 10, height + 12, NEWLY_AVAILABLE, 3);
     raster.strokeRect(x - 2, y - 2, width + 4, height + 6, WHITE, 1);
   } else if (emphasis === "group") {
     raster.strokeRect(x - 4, y - 4, width + 8, height + 10, GROUP, 2);
@@ -164,7 +164,7 @@ function drawSeat(
   raster.rect(x + width, y + height * 0.68, 2, Math.max(3, height * 0.32), fill);
 }
 
-function drawLegendItem(raster: Raster, x: number, label: string, color: Color, emphasis: "none" | "group" | "returned"): void {
+function drawLegendItem(raster: Raster, x: number, label: string, color: Color, emphasis: "none" | "group" | "new"): void {
   drawSeat(raster, x, HEIGHT - 42, 13, 11, color, emphasis);
   raster.text(label, x + 23, HEIGHT - 42, 1, LABEL);
 }
@@ -172,13 +172,13 @@ function drawLegendItem(raster: Raster, x: number, label: string, color: Color, 
 export function renderSeatMapPng(
   map: SeatMap,
   highlightedSeatIds: Iterable<string>,
-  returnedSeatIds?: Iterable<string>,
+  newlyAvailableSeatIds?: Iterable<string>,
 ): Uint8Array {
   const raster = new Raster();
   const seats = normalizeSeats(map);
   const highlights = new Set(highlightedSeatIds);
-  const returned = new Set(returnedSeatIds ?? highlights);
-  const returnedInAlert = [...returned].filter((id) => highlights.has(id)).sort();
+  const newlyAvailable = new Set(newlyAvailableSeatIds ?? highlights);
+  const newlyAvailableInAlert = [...newlyAvailable].filter((id) => highlights.has(id)).sort();
   const minX = Math.min(...seats.map((seat) => seat.x));
   const maxX = Math.max(...seats.map((seat) => seat.x + seat.width));
   const sourceWidth = Math.max(maxX - minX, 1);
@@ -197,15 +197,17 @@ export function renderSeatMapPng(
   const isAlert = highlights.size > 0;
   const availableCount = seats.filter((seat) => seat.available && seat.type.toLowerCase() === "standard").length;
 
-  raster.rect(0, 0, WIDTH, 5, isAlert ? RETURNED : AVAILABLE);
+  raster.rect(0, 0, WIDTH, 5, isAlert ? GROUP : AVAILABLE);
   raster.rect(0, 6, WIDTH, 72, PANEL);
-  raster.text(isAlert ? "RETURNED SEAT ALERT" : "CURRENT SEAT MAP", 32, 20, 3, WHITE);
+  raster.text(isAlert ? "AVAILABLE SEAT ALERT" : "CURRENT SEAT MAP", 32, 20, 3, WHITE);
   const status = isAlert
-    ? returnedInAlert.length <= 4
-      ? `NEW ${returnedInAlert.join(" ") || highlights.size}`
-      : `${returnedInAlert.length} NEW SEATS`
+    ? newlyAvailableInAlert.length === 0
+      ? `${highlights.size} SEATS FOUND`
+      : newlyAvailableInAlert.length <= 4
+        ? `NEW ${newlyAvailableInAlert.join(" ")}`
+        : `${newlyAvailableInAlert.length} NEW SEATS`
     : `${availableCount} AVAILABLE`;
-  raster.text(status, WIDTH - 32 - textWidth(status, 2), 25, 2, isAlert ? RETURNED : AVAILABLE);
+  raster.text(status, WIDTH - 32 - textWidth(status, 2), 25, 2, isAlert ? GROUP : AVAILABLE);
   raster.text(fitText(`${map.theaterName} - AUDITORIUM ${map.auditoriumId}`, WIDTH - 64, 2), 32, 53, 2, MUTED_LABEL);
 
   raster.rect(174, 104, WIDTH - 348, 14, SCREEN_GLOW);
@@ -228,10 +230,10 @@ export function renderSeatMapPng(
     const x = plotLeft + (seat.x - minX) * xScale + (scaledSpan - width) / 2;
     const y = plotTop + index * rowPitch - height / 2;
     const isHighlighted = highlights.has(seat.id);
-    const isReturned = isHighlighted && returned.has(seat.id);
-    const emphasis = isReturned ? "returned" : isHighlighted ? "group" : "none";
-    const color = isReturned
-      ? RETURNED
+    const isNewlyAvailable = isHighlighted && newlyAvailable.has(seat.id);
+    const emphasis = isNewlyAvailable ? "new" : isHighlighted ? "group" : "none";
+    const color = isNewlyAvailable
+      ? NEWLY_AVAILABLE
       : isHighlighted
         ? GROUP
         : seat.type.toLowerCase() !== "standard"
@@ -247,7 +249,7 @@ export function renderSeatMapPng(
   drawLegendItem(raster, 212, "UNAVAILABLE", TAKEN, "none");
   drawLegendItem(raster, 412, "OTHER", SPECIAL, "none");
   drawLegendItem(raster, 558, "GROUP SEAT", GROUP, "group");
-  drawLegendItem(raster, 766, "NEWLY RETURNED", RETURNED, "returned");
+  drawLegendItem(raster, 766, "NEWLY AVAILABLE", NEWLY_AVAILABLE, "new");
   return encodePng(raster.pixels, WIDTH, HEIGHT);
 }
 

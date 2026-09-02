@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Read-only Fandango returned-seat notifier for The Odyssey in IMAX 70MM.",
+  "description": "Read-only Fandango seat-availability notifier for The Odyssey in IMAX 70MM.",
   "scripts": {
     "check": "npm run typecheck && npm test",
     "coverage": "node --experimental-strip-types --test --experimental-test-coverage test/*.test.ts",
