@@ -1,0 +1,23 @@
+{
+  "name": "fandango-odyssey-seat-notifier",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Read-only Fandango returned-seat notifier for The Odyssey in IMAX 70MM.",
+  "scripts": {
+    "check": "npm run typecheck && npm test",
+    "coverage": "node --experimental-strip-types --test --experimental-test-coverage test/*.test.ts",
+    "discord:test": "node --experimental-strip-types scripts/configure-discord.ts",
+    "github:monitor": "node --experimental-strip-types scripts/github-run.ts",
+    "live-smoke": "node --experimental-strip-types scripts/live-smoke.ts",
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "26.3.0",
+    "typescript": "7.0.2"
+  }
+}
