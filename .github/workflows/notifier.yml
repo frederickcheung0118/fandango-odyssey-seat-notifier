@@ -3,7 +3,7 @@ name: Fandango seat notifier
 on:
   schedule:
     # Offset from the top of the hour, when GitHub's scheduler is busiest.
-    - cron: "2/5 * * * *"
+    - cron: "2,7,12,17,22,27,32,37,42,47,52,57 * * * *"
   workflow_dispatch:
 
 permissions:
