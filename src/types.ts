@@ -17,6 +17,7 @@ export interface TheaterTarget {
   slug: string;
   includedTimes: readonly string[];
   pageUrl: string;
+  regalUrl: string;
 }
 
 export interface Showtime {

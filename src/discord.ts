@@ -50,6 +50,11 @@ export async function sendSeatAlert(
             value: "3 adjacent standard seats • rows E–I or K • score >50",
             inline: false,
           },
+          {
+            name: "Official Regal page",
+            value: `[Open this theater on Regal](${event.target.regalUrl})`,
+            inline: false,
+          },
         ],
         image: { url: "attachment://seat-map.png" },
         footer: { text: "Read-only availability check — no seats are held or purchased" },

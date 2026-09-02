@@ -48,6 +48,11 @@ test("sends a multipart seat alert with an attached PNG", async () => {
     return new Response(null, { status: 204 });
   });
   assert.ok(Array.isArray(payload?.embeds));
+  const embed = (payload?.embeds as Array<{ fields: Array<{ name: string; value: string }> }>)[0]!;
+  assert.equal(
+    embed.fields.find((field) => field.name === "Official Regal page")?.value,
+    `[Open this theater on Regal](${TARGETS[1]!.regalUrl})`,
+  );
   assert.equal(image?.type, "image/png");
   assert.ok((image?.size ?? 0) > 1_000_000);
 });

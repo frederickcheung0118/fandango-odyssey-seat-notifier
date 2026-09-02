@@ -29,6 +29,7 @@ export const TARGETS: readonly TheaterTarget[] = [
     includedTimes: ["14:20", "15:00"],
     pageUrl:
       "https://www.fandango.com/regal-edwards-ontario-palace-aaedm/theater-page?format=IMAX%2070MM",
+    regalUrl: "https://www.regmovies.com/theatres/regal-edwards-ontario-palace-1026",
   },
   {
     id: "irvine",
@@ -38,5 +39,6 @@ export const TARGETS: readonly TheaterTarget[] = [
     slug: "regal-irvine-spectrum-aabtb",
     includedTimes: ["14:30"],
     pageUrl: "https://www.fandango.com/regal-irvine-spectrum-aabtb/theater-page?format=IMAX%2070MM",
+    regalUrl: "https://www.regmovies.com/theatres/regal-edwards-irvine-spectrum-1010",
   },
 ];
