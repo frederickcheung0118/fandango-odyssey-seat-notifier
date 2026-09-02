@@ -17,7 +17,7 @@ const SCREEN: Color = [103, 232, 249];
 const AVAILABLE: Color = [45, 212, 191];
 const TAKEN: Color = [51, 65, 85];
 const SPECIAL: Color = [96, 165, 250];
-const PAIR: Color = [250, 204, 21];
+const GROUP: Color = [250, 204, 21];
 const RETURNED: Color = [244, 63, 94];
 const WHITE: Color = [248, 250, 252];
 const LABEL: Color = [226, 232, 240];
@@ -147,13 +147,13 @@ function drawSeat(
   width: number,
   height: number,
   fill: Color,
-  emphasis: "none" | "pair" | "returned",
+  emphasis: "none" | "group" | "returned",
 ): void {
   if (emphasis === "returned") {
     raster.strokeRect(x - 5, y - 5, width + 10, height + 12, RETURNED, 3);
     raster.strokeRect(x - 2, y - 2, width + 4, height + 6, WHITE, 1);
-  } else if (emphasis === "pair") {
-    raster.strokeRect(x - 4, y - 4, width + 8, height + 10, PAIR, 2);
+  } else if (emphasis === "group") {
+    raster.strokeRect(x - 4, y - 4, width + 8, height + 10, GROUP, 2);
   }
 
   raster.rect(x + 2, y + 3, width, height, [3, 7, 18]);
@@ -164,7 +164,7 @@ function drawSeat(
   raster.rect(x + width, y + height * 0.68, 2, Math.max(3, height * 0.32), fill);
 }
 
-function drawLegendItem(raster: Raster, x: number, label: string, color: Color, emphasis: "none" | "pair" | "returned"): void {
+function drawLegendItem(raster: Raster, x: number, label: string, color: Color, emphasis: "none" | "group" | "returned"): void {
   drawSeat(raster, x, HEIGHT - 42, 13, 11, color, emphasis);
   raster.text(label, x + 23, HEIGHT - 42, 1, LABEL);
 }
@@ -214,7 +214,7 @@ export function renderSeatMapPng(
 
   for (const [label, index] of rows) {
     const centerY = plotTop + index * rowPitch;
-    const labelColor = highlightedRows.has(label) ? PAIR : eligibleRows.has(label) ? LABEL : MUTED_LABEL;
+    const labelColor = highlightedRows.has(label) ? GROUP : eligibleRows.has(label) ? LABEL : MUTED_LABEL;
     raster.rect(plotLeft - 15, centerY, plotRight - plotLeft + 30, 1, GUIDE);
     raster.text(label, 28, centerY - 7, 2, labelColor);
     raster.text(label, WIDTH - 28 - textWidth(label, 2), centerY - 7, 2, labelColor);
@@ -229,11 +229,11 @@ export function renderSeatMapPng(
     const y = plotTop + index * rowPitch - height / 2;
     const isHighlighted = highlights.has(seat.id);
     const isReturned = isHighlighted && returned.has(seat.id);
-    const emphasis = isReturned ? "returned" : isHighlighted ? "pair" : "none";
+    const emphasis = isReturned ? "returned" : isHighlighted ? "group" : "none";
     const color = isReturned
       ? RETURNED
       : isHighlighted
-        ? PAIR
+        ? GROUP
         : seat.type.toLowerCase() !== "standard"
           ? SPECIAL
           : seat.available
@@ -246,7 +246,7 @@ export function renderSeatMapPng(
   drawLegendItem(raster, 36, "AVAILABLE", AVAILABLE, "none");
   drawLegendItem(raster, 212, "UNAVAILABLE", TAKEN, "none");
   drawLegendItem(raster, 412, "OTHER", SPECIAL, "none");
-  drawLegendItem(raster, 558, "PAIR SEAT", PAIR, "pair");
+  drawLegendItem(raster, 558, "GROUP SEAT", GROUP, "group");
   drawLegendItem(raster, 766, "NEWLY RETURNED", RETURNED, "returned");
   return encodePng(raster.pixels, WIDTH, HEIGHT);
 }

@@ -1,5 +1,5 @@
 import { SETTINGS } from "./config.ts";
-import type { RawSeat, Seat, SeatMap, SeatPair, SeatSnapshot } from "./types.ts";
+import type { RawSeat, Seat, SeatGroup, SeatMap, SeatSnapshot } from "./types.ts";
 
 function rowFromId(id: string, rawRow: string | number): string {
   const label = /^([A-Za-z]+)[- ]?\d+$/.exec(id)?.[1];
@@ -51,64 +51,84 @@ function eligible(seat: Seat): boolean {
   );
 }
 
-function canonicalPair(left: Seat, right: Seat): readonly [Seat, Seat] {
-  return left.x <= right.x ? [left, right] : [right, left];
+function edgeKey(left: Seat, right: Seat): string {
+  return left.x <= right.x ? `${left.id}+${right.id}` : `${right.id}+${left.id}`;
 }
 
-function pairKey(seats: readonly [Seat, Seat]): string {
-  return `${seats[0].id}+${seats[1].id}`;
+function groupKey(seats: readonly [Seat, Seat, Seat]): string {
+  return seats.map((seat) => seat.id).join("+");
 }
 
-function explicitPairs(seats: Seat[]): Array<readonly [Seat, Seat]> {
-  const byId = new Map(seats.map((seat) => [seat.id, seat]));
-  const pairs = new Map<string, readonly [Seat, Seat]>();
-  for (const seat of seats.filter(eligible)) {
-    for (const neighborId of [seat.leftNeighbor, seat.rightNeighbor]) {
-      if (!neighborId) continue;
-      const neighbor = byId.get(neighborId);
-      if (!neighbor || !eligible(neighbor) || neighbor.row !== seat.row) continue;
-      const pair = canonicalPair(seat, neighbor);
-      pairs.set(pairKey(pair), pair);
-    }
-  }
-  return [...pairs.values()];
-}
-
-function geometryPairs(seats: Seat[]): Array<readonly [Seat, Seat]> {
+function seatsByRow(seats: Seat[]): Map<string, Seat[]> {
   const rows = new Map<string, Seat[]>();
   for (const seat of seats.filter(eligible)) {
     const row = rows.get(seat.row) ?? [];
     row.push(seat);
     rows.set(seat.row, row);
   }
-  const pairs: Array<readonly [Seat, Seat]> = [];
-  for (const row of rows.values()) {
-    row.sort((left, right) => left.x - right.x);
-    for (let index = 1; index < row.length; index += 1) {
-      const left = row[index - 1];
-      const right = row[index];
-      if (!left || !right || Math.abs(left.column - right.column) !== 1) continue;
-      const centerGap = right.x + right.width / 2 - (left.x + left.width / 2);
-      const maximumGap = Math.max(left.width, right.width) * 1.8;
-      if (centerGap > 0 && centerGap <= maximumGap) pairs.push([left, right]);
-    }
-  }
-  return pairs;
+  for (const row of rows.values()) row.sort((left, right) => left.x - right.x);
+  return rows;
 }
 
-function scorePair(pair: readonly [Seat, Seat], allSeats: Seat[]): number {
+function explicitGroups(seats: Seat[]): Array<readonly [Seat, Seat, Seat]> {
+  const byId = new Map(seats.map((seat) => [seat.id, seat]));
+  const linkedEdges = new Set<string>();
+  for (const seat of seats.filter(eligible)) {
+    for (const neighborId of [seat.leftNeighbor, seat.rightNeighbor]) {
+      if (!neighborId) continue;
+      const neighbor = byId.get(neighborId);
+      if (!neighbor || !eligible(neighbor) || neighbor.row !== seat.row) continue;
+      linkedEdges.add(edgeKey(seat, neighbor));
+    }
+  }
+  const groups: Array<readonly [Seat, Seat, Seat]> = [];
+  for (const row of seatsByRow(seats).values()) {
+    for (let index = 0; index <= row.length - 3; index += 1) {
+      const first = row[index]!;
+      const second = row[index + 1]!;
+      const third = row[index + 2]!;
+      if (linkedEdges.has(edgeKey(first, second)) && linkedEdges.has(edgeKey(second, third))) {
+        groups.push([first, second, third]);
+      }
+    }
+  }
+  return groups;
+}
+
+function geometricallyAdjacent(left: Seat, right: Seat): boolean {
+  if (Math.abs(left.column - right.column) !== 1) return false;
+  const centerGap = right.x + right.width / 2 - (left.x + left.width / 2);
+  const maximumGap = Math.max(left.width, right.width) * 1.8;
+  return centerGap > 0 && centerGap <= maximumGap;
+}
+
+function geometryGroups(seats: Seat[]): Array<readonly [Seat, Seat, Seat]> {
+  const groups: Array<readonly [Seat, Seat, Seat]> = [];
+  for (const row of seatsByRow(seats).values()) {
+    for (let index = 0; index <= row.length - 3; index += 1) {
+      const first = row[index]!;
+      const second = row[index + 1]!;
+      const third = row[index + 2]!;
+      if (geometricallyAdjacent(first, second) && geometricallyAdjacent(second, third)) {
+        groups.push([first, second, third]);
+      }
+    }
+  }
+  return groups;
+}
+
+function scoreGroup(group: readonly [Seat, Seat, Seat], allSeats: Seat[]): number {
   const minX = Math.min(...allSeats.map((seat) => seat.x));
   const maxX = Math.max(...allSeats.map((seat) => seat.x + seat.width));
   const width = Math.max(maxX - minX, 1);
   const center = minX + width / 2;
-  const pairCenter =
-    (pair[0].x + pair[0].width / 2 + pair[1].x + pair[1].width / 2) / 2;
-  const horizontal = Math.max(0, 1 - Math.abs(pairCenter - center) / (width / 2));
+  const groupCenter = group.reduce((sum, seat) => sum + seat.x + seat.width / 2, 0) / group.length;
+  const horizontal = Math.max(0, 1 - Math.abs(groupCenter - center) / (width / 2));
 
   const ordinals = allSeats.map((seat) => seat.rowOrdinal);
   const minRow = Math.min(...ordinals);
   const maxRow = Math.max(...ordinals);
-  const rowFraction = maxRow === minRow ? SETTINGS.idealRowFraction : (pair[0].rowOrdinal - minRow) / (maxRow - minRow);
+  const rowFraction = maxRow === minRow ? SETTINGS.idealRowFraction : (group[0].rowOrdinal - minRow) / (maxRow - minRow);
   const rowDistance = Math.abs(rowFraction - SETTINGS.idealRowFraction);
   const maximumRowDistance =
     rowFraction <= SETTINGS.idealRowFraction
@@ -120,15 +140,15 @@ function scorePair(pair: readonly [Seat, Seat], allSeats: Seat[]): number {
   return Math.round(weighted * 100);
 }
 
-export function eligibleAvailablePairs(map: SeatMap): SeatPair[] {
+export function eligibleAvailableGroups(map: SeatMap): SeatGroup[] {
   const seats = normalizeSeats(map);
   const standardSeats = seats.filter((seat) => seat.type === "standard");
   const linkedSeats = standardSeats.filter((seat) => seat.leftNeighbor || seat.rightNeighbor).length;
   const useExplicitNeighbors = standardSeats.length > 0 && linkedSeats / standardSeats.length >= 0.75;
-  const rawPairs = useExplicitNeighbors ? explicitPairs(seats) : geometryPairs(seats);
-  return rawPairs
-    .map((pair) => ({ key: pairKey(pair), row: pair[0].row, seats: pair, score: scorePair(pair, seats) }))
-    .filter((pair) => pair.score > SETTINGS.minimumSeatScoreExclusive)
+  const rawGroups = useExplicitNeighbors ? explicitGroups(seats) : geometryGroups(seats);
+  return rawGroups
+    .map((group) => ({ key: groupKey(group), row: group[0].row, seats: group, score: scoreGroup(group, seats) }))
+    .filter((group) => group.score > SETTINGS.minimumSeatScoreExclusive)
     .sort((left, right) => right.score - left.score || left.key.localeCompare(right.key));
 }
 
@@ -144,12 +164,12 @@ export function snapshotForMap(map: SeatMap, capturedAt: Date): SeatSnapshot {
   };
 }
 
-export function returnedPairs(map: SeatMap, previous: SeatSnapshot | undefined): {
-  pairs: SeatPair[];
+export function returnedGroups(map: SeatMap, previous: SeatSnapshot | undefined): {
+  groups: SeatGroup[];
   returnedSeatIds: string[];
 } {
   if (!previous || previous.version !== 3 || previous.auditoriumId !== map.auditoriumId) {
-    return { pairs: [], returnedSeatIds: [] };
+    return { groups: [], returnedSeatIds: [] };
   }
   const previousAvailable = new Set(previous.availableSeatIds);
   const currentAvailable = new Set(
@@ -159,8 +179,8 @@ export function returnedPairs(map: SeatMap, previous: SeatSnapshot | undefined):
   );
   const returnedSeatIds = [...currentAvailable].filter((id) => !previousAvailable.has(id)).sort();
   const returned = new Set(returnedSeatIds);
-  const pairs = eligibleAvailablePairs(map).filter((pair) => pair.seats.some((seat) => returned.has(seat.id)));
-  return { pairs, returnedSeatIds };
+  const groups = eligibleAvailableGroups(map).filter((group) => group.seats.some((seat) => returned.has(seat.id)));
+  return { groups, returnedSeatIds };
 }
 
 export function rawSeat(overrides: Partial<RawSeat> & Pick<RawSeat, "id" | "row" | "column">): RawSeat {

@@ -64,13 +64,14 @@ function mapPayload(targetId: string, returned: boolean): unknown {
     theaterName: targetId,
     auditoriumId: targetId === "ontario" ? 13 : 12,
     seats: [
-      { id: "E2", row: 5, column: 20, status: returned ? "A" : "R", type: "standard", x: 100, y: 50, width: 24, height: 24 },
-      { id: "E1", row: 5, column: 21, status: "A", type: "standard", x: 130, y: 50, width: 24, height: 24 },
+      { id: "E3", row: 5, column: 20, status: returned ? "A" : "R", type: "standard", x: 100, y: 50, width: 24, height: 24 },
+      { id: "E2", row: 5, column: 21, status: "A", type: "standard", x: 130, y: 50, width: 24, height: 24 },
+      { id: "E1", row: 5, column: 22, status: "A", type: "standard", x: 160, y: 50, width: 24, height: 24 },
     ],
   };
 }
 
-test("baselines silently, caches catalogs, then alerts on returned pairs", async () => {
+test("baselines silently, caches catalogs, then alerts on returned groups", async () => {
   let returned = false;
   let catalogRequests = 0;
   const fetchImpl = async (url: URL): Promise<Response> => {
@@ -114,7 +115,7 @@ test("baselines silently, caches catalogs, then alerts on returned pairs", async
   assert.equal(second.errors.length, 0);
   assert.equal(catalogRequests, 16, "the fresh catalogs should be reused");
   assert.equal(events.length, 2);
-  assert.ok(events.every((event) => event.pairs[0]?.key === "E2+E1"));
+  assert.ok(events.every((event) => event.groups[0]?.key === "E3+E2+E1"));
 });
 
 test("deduplicates repeated errors and announces recovery", async () => {

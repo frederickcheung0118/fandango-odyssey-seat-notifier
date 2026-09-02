@@ -66,10 +66,10 @@ export interface Seat {
   rightNeighbor?: string;
 }
 
-export interface SeatPair {
+export interface SeatGroup {
   key: string;
   row: string;
-  seats: readonly [Seat, Seat];
+  seats: readonly [Seat, Seat, Seat];
   score: number;
 }
 
@@ -89,7 +89,7 @@ export interface SeatAlertEvent {
   target: TheaterTarget;
   showtime: Showtime;
   map: SeatMap;
-  pairs: SeatPair[];
+  groups: SeatGroup[];
   returnedSeatIds: string[];
 }
 

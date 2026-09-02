@@ -27,11 +27,11 @@ export async function sendSeatAlert(
   fetchImpl: FetchLike = defaultFetch,
 ): Promise<void> {
   validateWebhook(webhookUrl);
-  const highlighted = new Set(event.pairs.flatMap((pair) => pair.seats.map((seat) => seat.id)));
+  const highlighted = new Set(event.groups.flatMap((group) => group.seats.map((seat) => seat.id)));
   const png = renderSeatMapPng(event.map, highlighted, event.returnedSeatIds);
-  const pairLines = event.pairs
+  const groupLines = event.groups
     .slice(0, 12)
-    .map((pair) => `**${pair.seats[0].id} + ${pair.seats[1].id}** — score ${pair.score}`)
+    .map((group) => `**${group.seats.map((seat) => seat.id).join(" + ")}** — score ${group.score}`)
     .join("\n");
   const epochSeconds = Math.floor(event.showtime.startsAtEpochMs / 1_000);
   const payload = {
@@ -44,10 +44,10 @@ export async function sendSeatAlert(
         color: 0xfacc15,
         description: `**The Odyssey — IMAX 70MM**\n<t:${epochSeconds}:F> (<t:${epochSeconds}:R>)`,
         fields: [
-          { name: "Eligible adjacent pairs", value: pairLines || "None", inline: false },
+          { name: "Eligible adjacent groups", value: groupLines || "None", inline: false },
           {
             name: "Filter",
-            value: "2 adjacent standard seats • rows E–I or K • score >50",
+            value: "3 adjacent standard seats • rows E–I or K • score >50",
             inline: false,
           },
         ],

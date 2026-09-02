@@ -8,7 +8,7 @@ import {
   sendTestNotification,
 } from "../src/discord.ts";
 import { TARGETS } from "../src/config.ts";
-import { eligibleAvailablePairs } from "../src/seats.ts";
+import { eligibleAvailableGroups } from "../src/seats.ts";
 import type { SeatAlertEvent, SeatMap } from "../src/types.ts";
 
 const webhook = "https://discord.com/api/webhooks/123/token";
@@ -18,8 +18,9 @@ function event(): SeatAlertEvent {
     theaterName: "Regal Irvine Spectrum",
     auditoriumId: "12",
     seats: [
-      { id: "E2", row: 5, column: 20, status: "A", type: "standard", x: 100, y: 50, width: 24, height: 24 },
-      { id: "E1", row: 5, column: 21, status: "A", type: "standard", x: 130, y: 50, width: 24, height: 24 },
+      { id: "E3", row: 5, column: 20, status: "A", type: "standard", x: 100, y: 50, width: 24, height: 24 },
+      { id: "E2", row: 5, column: 21, status: "A", type: "standard", x: 130, y: 50, width: 24, height: 24 },
+      { id: "E1", row: 5, column: 22, status: "A", type: "standard", x: 160, y: 50, width: 24, height: 24 },
     ],
   };
   return {
@@ -31,8 +32,8 @@ function event(): SeatAlertEvent {
       displayTime: "2:30p",
     },
     map,
-    pairs: eligibleAvailablePairs(map),
-    returnedSeatIds: ["E2"],
+    groups: eligibleAvailableGroups(map),
+    returnedSeatIds: ["E3"],
   };
 }
 

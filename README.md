@@ -12,7 +12,7 @@ seat map. It never holds, reserves, or purchases tickets.
 | Regal Irvine Spectrum | `AABTB` | 2:30 PM |
 
 - Exact rolling window: now through 168 hours from now
-- Two adjacent standard seats
+- Three adjacent standard seats
 - Rows E, F, G, H, I, or K
 - Geometric seat-quality score strictly greater than 50
 - First successful observation is a silent baseline; alerts require an
