@@ -28,7 +28,7 @@ export async function sendSeatAlert(
 ): Promise<void> {
   validateWebhook(webhookUrl);
   const highlighted = new Set(event.pairs.flatMap((pair) => pair.seats.map((seat) => seat.id)));
-  const png = renderSeatMapPng(event.map, highlighted);
+  const png = renderSeatMapPng(event.map, highlighted, event.returnedSeatIds);
   const pairLines = event.pairs
     .slice(0, 12)
     .map((pair) => `**${pair.seats[0].id} + ${pair.seats[1].id}** — score ${pair.score}`)

@@ -1,18 +1,28 @@
 import { normalizeSeats } from "./seats.ts";
+import { SETTINGS } from "./config.ts";
 import type { SeatMap } from "./types.ts";
 
 type Color = readonly [number, number, number];
 
-const WIDTH = 900;
-const HEIGHT = 560;
-const BACKGROUND: Color = [15, 23, 42];
-const SCREEN: Color = [125, 211, 252];
-const AVAILABLE: Color = [34, 197, 94];
-const TAKEN: Color = [71, 85, 105];
-const SPECIAL: Color = [59, 130, 246];
-const HIGHLIGHT: Color = [250, 204, 21];
-const HIGHLIGHT_BORDER: Color = [244, 63, 94];
+export const SEAT_MAP_WIDTH = 1_000;
+export const SEAT_MAP_HEIGHT = 680;
+
+const WIDTH = SEAT_MAP_WIDTH;
+const HEIGHT = SEAT_MAP_HEIGHT;
+const BACKGROUND: Color = [9, 15, 30];
+const PANEL: Color = [14, 24, 43];
+const GUIDE: Color = [29, 42, 66];
+const SCREEN_GLOW: Color = [30, 64, 88];
+const SCREEN: Color = [103, 232, 249];
+const AVAILABLE: Color = [45, 212, 191];
+const TAKEN: Color = [51, 65, 85];
+const SPECIAL: Color = [96, 165, 250];
+const PAIR: Color = [250, 204, 21];
+const RETURNED: Color = [244, 63, 94];
+const WHITE: Color = [248, 250, 252];
 const LABEL: Color = [226, 232, 240];
+const MUTED_LABEL: Color = [100, 116, 139];
+const SEAT_OUTLINE: Color = [15, 23, 42];
 
 const FONT: Record<string, readonly string[]> = {
   A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
@@ -29,9 +39,49 @@ const FONT: Record<string, readonly string[]> = {
   L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
   M: ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
   N: ["10001", "11001", "10101", "10011", "10001", "10001", "10001"],
+  O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
+  P: ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
+  Q: ["01110", "10001", "10001", "10001", "10101", "10010", "01101"],
   R: ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
   S: ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
+  T: ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
+  U: ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
+  V: ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
+  W: ["10001", "10001", "10001", "10101", "10101", "10101", "01010"],
+  X: ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
+  Y: ["10001", "10001", "01010", "00100", "00100", "00100", "00100"],
+  Z: ["11111", "00001", "00010", "00100", "01000", "10000", "11111"],
+  "0": ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
+  "1": ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
+  "2": ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
+  "3": ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
+  "4": ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
+  "5": ["11111", "10000", "10000", "11110", "00001", "00001", "11110"],
+  "6": ["01110", "10000", "10000", "11110", "10001", "10001", "01110"],
+  "7": ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
+  "8": ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
+  "9": ["01110", "10001", "10001", "01111", "00001", "00001", "01110"],
+  "+": ["00000", "00100", "00100", "11111", "00100", "00100", "00000"],
+  "-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
+  ".": ["00000", "00000", "00000", "00000", "00000", "01100", "01100"],
 };
+
+function textWidth(value: string, scale: number): number {
+  if (value.length === 0) return 0;
+  return [...value].reduce((width, character) => width + (FONT[character.toUpperCase()] ? 6 : 4) * scale, 0) - scale;
+}
+
+function fitText(value: string, maximumWidth: number, scale: number): string {
+  const normalized = value.toUpperCase();
+  if (textWidth(normalized, scale) <= maximumWidth) return normalized;
+  const suffix = "...";
+  let result = "";
+  for (const character of normalized) {
+    if (textWidth(`${result}${character}${suffix}`, scale) > maximumWidth) break;
+    result += character;
+  }
+  return `${result.trimEnd()}${suffix}`;
+}
 
 class Raster {
   readonly pixels = new Uint8Array(WIDTH * HEIGHT * 3);
@@ -59,6 +109,13 @@ class Raster {
     }
   }
 
+  strokeRect(x: number, y: number, width: number, height: number, color: Color, thickness = 1): void {
+    this.rect(x, y, width, thickness, color);
+    this.rect(x, y + height - thickness, width, thickness, color);
+    this.rect(x, y, thickness, height, color);
+    this.rect(x + width - thickness, y, thickness, height, color);
+  }
+
   text(value: string, x: number, y: number, scale: number, color: Color): void {
     let cursor = x;
     for (const character of value.toUpperCase()) {
@@ -79,55 +136,118 @@ class Raster {
   }
 }
 
-export function renderSeatMapPng(map: SeatMap, highlightedSeatIds: Iterable<string>): Uint8Array {
+function drawCenteredText(raster: Raster, value: string, centerX: number, y: number, scale: number, color: Color): void {
+  raster.text(value, centerX - textWidth(value, scale) / 2, y, scale, color);
+}
+
+function drawSeat(
+  raster: Raster,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  fill: Color,
+  emphasis: "none" | "pair" | "returned",
+): void {
+  if (emphasis === "returned") {
+    raster.strokeRect(x - 5, y - 5, width + 10, height + 12, RETURNED, 3);
+    raster.strokeRect(x - 2, y - 2, width + 4, height + 6, WHITE, 1);
+  } else if (emphasis === "pair") {
+    raster.strokeRect(x - 4, y - 4, width + 8, height + 10, PAIR, 2);
+  }
+
+  raster.rect(x + 2, y + 3, width, height, [3, 7, 18]);
+  raster.strokeRect(x, y, width, height, SEAT_OUTLINE, 1);
+  raster.rect(x + 1, y + 1, Math.max(1, width - 2), Math.max(2, height * 0.63), fill);
+  raster.rect(x, y + height * 0.62, width, Math.max(3, height * 0.38), fill);
+  raster.rect(x - 2, y + height * 0.68, 2, Math.max(3, height * 0.32), fill);
+  raster.rect(x + width, y + height * 0.68, 2, Math.max(3, height * 0.32), fill);
+}
+
+function drawLegendItem(raster: Raster, x: number, label: string, color: Color, emphasis: "none" | "pair" | "returned"): void {
+  drawSeat(raster, x, HEIGHT - 42, 13, 11, color, emphasis);
+  raster.text(label, x + 23, HEIGHT - 42, 1, LABEL);
+}
+
+export function renderSeatMapPng(
+  map: SeatMap,
+  highlightedSeatIds: Iterable<string>,
+  returnedSeatIds?: Iterable<string>,
+): Uint8Array {
   const raster = new Raster();
   const seats = normalizeSeats(map);
   const highlights = new Set(highlightedSeatIds);
+  const returned = new Set(returnedSeatIds ?? highlights);
+  const returnedInAlert = [...returned].filter((id) => highlights.has(id)).sort();
   const minX = Math.min(...seats.map((seat) => seat.x));
   const maxX = Math.max(...seats.map((seat) => seat.x + seat.width));
   const sourceWidth = Math.max(maxX - minX, 1);
-  const plotLeft = 62;
-  const plotRight = WIDTH - 28;
-  const plotTop = 105;
-  const plotBottom = HEIGHT - 34;
+  const plotLeft = 82;
+  const plotRight = WIDTH - 82;
+  const plotTop = 166;
+  const plotBottom = HEIGHT - 94;
   const rows = [...new Map(seats.map((seat) => [seat.row, seat.rowOrdinal])).entries()].sort(
     (left, right) => left[1] - right[1],
   );
   const rowIndex = new Map(rows.map(([label], index) => [label, index]));
-  const rowPitch = rows.length <= 1 ? 30 : (plotBottom - plotTop) / (rows.length - 1);
+  const rowPitch = rows.length <= 1 ? 32 : (plotBottom - plotTop) / (rows.length - 1);
   const xScale = (plotRight - plotLeft) / sourceWidth;
+  const eligibleRows = new Set<string>(SETTINGS.eligibleRows);
+  const highlightedRows = new Set(seats.filter((seat) => highlights.has(seat.id)).map((seat) => seat.row));
+  const isAlert = highlights.size > 0;
+  const availableCount = seats.filter((seat) => seat.available && seat.type.toLowerCase() === "standard").length;
 
-  raster.rect(180, 31, WIDTH - 360, 8, SCREEN);
-  raster.text("SCREEN", WIDTH / 2 - 54, 50, 3, SCREEN);
+  raster.rect(0, 0, WIDTH, 5, isAlert ? RETURNED : AVAILABLE);
+  raster.rect(0, 6, WIDTH, 72, PANEL);
+  raster.text(isAlert ? "RETURNED SEAT ALERT" : "CURRENT SEAT MAP", 32, 20, 3, WHITE);
+  const status = isAlert
+    ? returnedInAlert.length <= 4
+      ? `NEW ${returnedInAlert.join(" ") || highlights.size}`
+      : `${returnedInAlert.length} NEW SEATS`
+    : `${availableCount} AVAILABLE`;
+  raster.text(status, WIDTH - 32 - textWidth(status, 2), 25, 2, isAlert ? RETURNED : AVAILABLE);
+  raster.text(fitText(`${map.theaterName} - AUDITORIUM ${map.auditoriumId}`, WIDTH - 64, 2), 32, 53, 2, MUTED_LABEL);
+
+  raster.rect(174, 104, WIDTH - 348, 14, SCREEN_GLOW);
+  raster.rect(194, 107, WIDTH - 388, 6, SCREEN);
+  drawCenteredText(raster, "SCREEN", WIDTH / 2, 127, 2, SCREEN);
 
   for (const [label, index] of rows) {
-    const y = plotTop + index * rowPitch;
-    raster.text(label, 22, y - 8, 2, LABEL);
+    const centerY = plotTop + index * rowPitch;
+    const labelColor = highlightedRows.has(label) ? PAIR : eligibleRows.has(label) ? LABEL : MUTED_LABEL;
+    raster.rect(plotLeft - 15, centerY, plotRight - plotLeft + 30, 1, GUIDE);
+    raster.text(label, 28, centerY - 7, 2, labelColor);
+    raster.text(label, WIDTH - 28 - textWidth(label, 2), centerY - 7, 2, labelColor);
   }
 
   for (const seat of seats) {
     const index = rowIndex.get(seat.row) ?? 0;
-    const x = plotLeft + (seat.x - minX) * xScale;
-    const y = plotTop + index * rowPitch - 7;
-    const width = Math.max(6, Math.min(20, seat.width * xScale * 0.82));
-    const height = Math.max(7, Math.min(15, rowPitch * 0.48));
-    const highlighted = highlights.has(seat.id);
-    const color = highlighted
-      ? HIGHLIGHT
-      : seat.type !== "standard"
-        ? SPECIAL
-        : seat.available
-          ? AVAILABLE
-          : TAKEN;
-    if (highlighted) raster.rect(x - 3, y - 3, width + 6, height + 6, HIGHLIGHT_BORDER);
-    raster.rect(x, y, width, height, color);
+    const scaledSpan = seat.width * xScale;
+    const width = Math.max(7, Math.min(22, scaledSpan * 0.78));
+    const height = Math.max(9, Math.min(17, rowPitch * 0.5));
+    const x = plotLeft + (seat.x - minX) * xScale + (scaledSpan - width) / 2;
+    const y = plotTop + index * rowPitch - height / 2;
+    const isHighlighted = highlights.has(seat.id);
+    const isReturned = isHighlighted && returned.has(seat.id);
+    const emphasis = isReturned ? "returned" : isHighlighted ? "pair" : "none";
+    const color = isReturned
+      ? RETURNED
+      : isHighlighted
+        ? PAIR
+        : seat.type.toLowerCase() !== "standard"
+          ? SPECIAL
+          : seat.available
+            ? AVAILABLE
+            : TAKEN;
+    drawSeat(raster, x, y, width, height, color, emphasis);
   }
 
-  raster.rect(585, 15, 12, 12, AVAILABLE);
-  raster.rect(632, 15, 12, 12, TAKEN);
-  raster.rect(679, 15, 12, 12, SPECIAL);
-  raster.rect(726, 12, 18, 18, HIGHLIGHT_BORDER);
-  raster.rect(729, 15, 12, 12, HIGHLIGHT);
+  raster.rect(0, HEIGHT - 62, WIDTH, 62, PANEL);
+  drawLegendItem(raster, 36, "AVAILABLE", AVAILABLE, "none");
+  drawLegendItem(raster, 212, "UNAVAILABLE", TAKEN, "none");
+  drawLegendItem(raster, 412, "OTHER", SPECIAL, "none");
+  drawLegendItem(raster, 558, "PAIR SEAT", PAIR, "pair");
+  drawLegendItem(raster, 766, "NEWLY RETURNED", RETURNED, "returned");
   return encodePng(raster.pixels, WIDTH, HEIGHT);
 }
 

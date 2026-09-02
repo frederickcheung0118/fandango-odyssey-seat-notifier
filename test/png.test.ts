@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { inflateSync } from "node:zlib";
 
-import { renderSeatMapPng } from "../src/png.ts";
+import { renderSeatMapPng, SEAT_MAP_HEIGHT, SEAT_MAP_WIDTH } from "../src/png.ts";
 import type { SeatMap } from "../src/types.ts";
 
 test("renders a valid RGB PNG with a highlighted seat", () => {
@@ -17,7 +17,10 @@ test("renders a valid RGB PNG with a highlighted seat", () => {
   const png = renderSeatMapPng(map, ["E2"]);
   assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
   assert.ok(png.length > 1_000_000);
+  const dimensions = new DataView(png.buffer, png.byteOffset + 16, 8);
+  assert.equal(dimensions.getUint32(0), SEAT_MAP_WIDTH);
+  assert.equal(dimensions.getUint32(4), SEAT_MAP_HEIGHT);
   const idatLength = new DataView(png.buffer, png.byteOffset + 33, 4).getUint32(0);
   const compressed = png.subarray(41, 41 + idatLength);
-  assert.equal(inflateSync(compressed).length, 560 * (900 * 3 + 1));
+  assert.equal(inflateSync(compressed).length, SEAT_MAP_HEIGHT * (SEAT_MAP_WIDTH * 3 + 1));
 });
